@@ -32,6 +32,8 @@
     const notifDot = document.getElementById('notif-dot');
     const notifStatusText = document.getElementById('notif-status-text');
     const notifTestBtn = document.getElementById('notif-test');
+    const tabsContainer = document.getElementById('tabs-container');
+    const tabAddBtn = document.getElementById('tab-add');
 
     // ─── State ───────────────────────────────────────────────────
     let state = loadState();
@@ -114,8 +116,17 @@
         text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
         // Inline code
         text = text.replace(/`(.+?)`/g, '<code class="inline-code">$1</code>');
+        // Images ![alt](url)
+        text = text.replace(/!\[([^\]]*)\]\((.+?)\)/g, '<img src="$2" alt="$1" loading="lazy">');
         // Links [text](url)
         text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        // Bare URLs (not already inside href or src) — turn into link embeds with favicons
+        text = text.replace(/(?<!href=")(?<!src=")(https?:\/\/[^\s<"]+)/g, (match) => {
+            let hostname;
+            try { hostname = new URL(match).hostname; } catch { hostname = ''; }
+            const favicon = hostname ? `<img class="link-favicon" src="https://www.google.com/s2/favicons?domain=${hostname}&sz=32" alt="">` : '';
+            return `<span class="link-embed">${favicon}<a href="${match}" target="_blank" rel="noopener">${match}</a></span>`;
+        });
         return text;
     }
 
@@ -197,6 +208,12 @@
             return `<blockquote>${renderInline(trimmed.slice(2))}</blockquote>`;
         }
 
+        // Image-only line: ![alt](url)
+        const imgMatch = trimmed.match(/^!\[([^\]]*)\]\((.+?)\)$/);
+        if (imgMatch) {
+            return `<p><img src="${escapeHtml(imgMatch[2])}" alt="${escapeHtml(imgMatch[1])}" loading="lazy"></p>`;
+        }
+
         // List item
         const listMatch = line.match(/^(\s*)-\s+(.*)$/);
         if (listMatch) {
@@ -244,7 +261,9 @@
 
         // Close any unclosed code block
         if (inCodeBlock) {
-            html += `<pre><code>${escapeHtml(codeContent)}</code></pre>`;
+            const escaped = escapeHtml(codeContent);
+            const langAttr = codeLang ? ` class="language-${codeLang}"` : '';
+            html += `<pre><code${langAttr}>${escaped}</code></pre>`;
         }
 
         return html;
@@ -348,6 +367,12 @@
         } else {
             const scrollPos = preview.scrollTop;
             preview.innerHTML = renderMarkdown(page.content);
+            // Apply syntax highlighting to code blocks
+            if (typeof hljs !== 'undefined') {
+                preview.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
             preview.scrollTop = scrollPos;
         }
     }
@@ -431,6 +456,7 @@
         saveStateImmediate();
         updateStatus();
         renderPageList();
+        renderTabBar();
     }
 
     function addPage() {
@@ -464,6 +490,7 @@
             page.title = newTitle.trim();
             saveStateImmediate();
             renderPageList();
+            renderTabBar();
         }
     }
 
@@ -879,6 +906,175 @@
         updateNotifStatus();
     });
 
+    // ─── Tab Bar ──────────────────────────────────────────────────
+
+    function renderTabBar() {
+        const ids = Object.keys(state.pages);
+        let html = '';
+        for (const id of ids) {
+            const page = state.pages[id];
+            const isActive = id === state.currentPageId;
+            html += `<div class="tab${isActive ? ' active' : ''}" data-page-id="${id}">` +
+                `<span class="tab-title">${escapeHtml(page.title)}</span>` +
+                (ids.length > 1 ? `<span class="tab-close" data-page-id="${id}">&times;</span>` : '') +
+                `</div>`;
+        }
+        tabsContainer.innerHTML = html;
+
+        // Scroll active tab into view
+        const activeTab = tabsContainer.querySelector('.tab.active');
+        if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+
+    // Tab bar event listeners
+    tabsContainer.addEventListener('click', (e) => {
+        const closeBtn = e.target.closest('.tab-close');
+        if (closeBtn) {
+            e.stopPropagation();
+            deletePage(closeBtn.dataset.pageId);
+            return;
+        }
+        const tab = e.target.closest('.tab');
+        if (tab) {
+            switchPage(tab.dataset.pageId);
+        }
+    });
+
+    // Double-click tab to rename (inline)
+    tabsContainer.addEventListener('dblclick', (e) => {
+        const tab = e.target.closest('.tab');
+        if (!tab) return;
+        e.stopPropagation();
+        const pageId = tab.dataset.pageId;
+        const page = state.pages[pageId];
+        if (!page) return;
+
+        const titleSpan = tab.querySelector('.tab-title');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tab-rename-input';
+        input.value = page.title;
+        titleSpan.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const finishRename = () => {
+            const newTitle = input.value.trim();
+            if (newTitle) {
+                page.title = newTitle;
+                saveStateImmediate();
+            }
+            renderTabBar();
+            renderPageList();
+        };
+
+        input.addEventListener('blur', finishRename);
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+            if (ev.key === 'Escape') { input.value = page.title; input.blur(); }
+        });
+    });
+
+    tabAddBtn.addEventListener('click', addPage);
+
+    // ─── Image Paste & Drag Support ──────────────────────────────
+
+    function fileToDataUrl(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Paste images
+    editor.addEventListener('paste', async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        // Check for image files in clipboard
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (!file) return;
+                const dataUrl = await fileToDataUrl(file);
+                insertAtCursor(`![image](${dataUrl})`);
+                return;
+            }
+        }
+
+        // Check for pasted plain text that looks like a URL
+        const text = e.clipboardData.getData('text/plain');
+        if (text && /^https?:\/\/\S+$/.test(text.trim())) {
+            // Check if the URL points to an image
+            const url = text.trim();
+            if (/\.(png|jpe?g|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url)) {
+                e.preventDefault();
+                insertAtCursor(`![image](${url})`);
+            }
+            // Otherwise let it paste normally — renderInline will auto-linkify it
+        }
+    });
+
+    // Drag & drop support
+    let dragCounter = 0;
+    const dragOverlay = document.createElement('div');
+    dragOverlay.className = 'drag-overlay';
+    dragOverlay.innerHTML = '<div class="drag-overlay-text">Drop image or link</div>';
+    document.body.appendChild(dragOverlay);
+
+    document.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        dragOverlay.classList.add('visible');
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            dragOverlay.classList.remove('visible');
+        }
+    });
+
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dragOverlay.classList.remove('visible');
+
+        // Ensure we're in edit mode
+        if (state.mode !== 'edit') setMode('edit');
+
+        // Check for image files
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    const dataUrl = await fileToDataUrl(file);
+                    insertAtCursor(`\n![${file.name}](${dataUrl})\n`);
+                }
+            }
+            return;
+        }
+
+        // Check for dropped URLs
+        const url = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+        if (url && /^https?:\/\/\S+$/.test(url.trim())) {
+            const trimUrl = url.trim();
+            if (/\.(png|jpe?g|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(trimUrl)) {
+                insertAtCursor(`\n![image](${trimUrl})\n`);
+            } else {
+                insertAtCursor(trimUrl);
+            }
+        }
+    });
+
     // ─── Initialization ──────────────────────────────────────────
     function init() {
         // Apply saved font size
@@ -903,6 +1099,7 @@
         setMode(hasContent ? (state.mode || 'edit') : 'edit');
 
         updateStatus();
+        renderTabBar();
 
         // Start notification timer
         startNotifTimer();

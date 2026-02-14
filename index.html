@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tasks</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='2' fill='%231c1917' stroke='%233b82f6' stroke-width='1.5'/%3E%3Cpath d='M4 8l3 3 5-6' stroke='%233b82f6' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use ! or !! for priority  (e.g. [ ]! or &amp;!!)&#10;Use # for headings&#10;Use **bold** and *italic*&#10;&#10;Ctrl+E to preview"></textarea>
+    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use ! or !! for priority  (e.g. [ ]! or &amp;!!)&#10;Use # for headings&#10;Use **bold** and *italic*&#10;Use `code` and ```lang for code blocks&#10;Paste or drag images &amp; links&#10;&#10;Ctrl+E to preview"></textarea>
     <div id="preview" class="hidden"></div>
 
     <div id="controls">
@@ -19,6 +20,11 @@
     <div id="status-bar">
         <span id="word-count"></span>
         <span id="task-count"></span>
+    </div>
+
+    <div id="tab-bar">
+        <div id="tabs-container"></div>
+        <button id="tab-add" title="New page">+</button>
     </div>
 
     <div id="settings-overlay">
@@ -103,11 +109,15 @@
                     <div class="shortcut"><code>- item</code><span>List</span></div>
                     <div class="shortcut"><code>> quote</code><span>Blockquote</span></div>
                     <div class="shortcut"><code>---</code><span>Divider</span></div>
+                    <div class="shortcut"><code>`code`</code><span>Inline code</span></div>
+                    <div class="shortcut"><code>```lang</code><span>Code block</span></div>
+                    <div class="shortcut"><code>![alt](url)</code><span>Image</span></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
