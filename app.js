@@ -3,6 +3,7 @@
 
     // ─── Constants ───────────────────────────────────────────────
     const STORAGE_KEY = 'tasks_app_data';
+    const IMAGE_STORE_KEY = 'tasks_app_images';
     const SAVE_DEBOUNCE_MS = 300;
 
     // ─── Icons ───────────────────────────────────────────────────
@@ -32,13 +33,50 @@
     const notifDot = document.getElementById('notif-dot');
     const notifStatusText = document.getElementById('notif-status-text');
     const notifTestBtn = document.getElementById('notif-test');
-    const tabsContainer = document.getElementById('tabs-container');
-    const tabAddBtn = document.getElementById('tab-add');
+    // const tabsContainer = document.getElementById('tabs-container');
+    // const tabAddBtn = document.getElementById('tab-add');
 
     // ─── State ───────────────────────────────────────────────────
     let state = loadState();
     let saveTimeout = null;
     let notifTimerId = null;
+
+    // ─── Image Store ─────────────────────────────────────────────
+    // Images stored separately so base64 doesn't flood the editor text.
+    // Editor shows ![alt](img:ID) — renderer resolves to actual data URL.
+    let imageStore = loadImageStore();
+
+    function loadImageStore() {
+        try {
+            const raw = localStorage.getItem(IMAGE_STORE_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) { /* start fresh */ }
+        return {};
+    }
+
+    function saveImageStore() {
+        try {
+            localStorage.setItem(IMAGE_STORE_KEY, JSON.stringify(imageStore));
+        } catch (e) {
+            console.warn('Failed to save image store:', e);
+        }
+    }
+
+    function storeImage(dataUrl) {
+        const id = 'img_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+        imageStore[id] = dataUrl;
+        saveImageStore();
+        return id;
+    }
+
+    function resolveImageSrc(src) {
+        // If it's an img:ID reference, resolve from store
+        if (src.startsWith('img:') || src.startsWith('img_')) {
+            const id = src.startsWith('img:') ? src.slice(4) : src;
+            return imageStore[id] || src;
+        }
+        return src;
+    }
 
     // ─── State Management ────────────────────────────────────────
     function generateId() {
@@ -117,7 +155,10 @@
         // Inline code
         text = text.replace(/`(.+?)`/g, '<code class="inline-code">$1</code>');
         // Images ![alt](url)
-        text = text.replace(/!\[([^\]]*)\]\((.+?)\)/g, '<img src="$2" alt="$1" loading="lazy">');
+        text = text.replace(/!\[([^\]]*)\]\((.+?)\)/g, (_, alt, src) => {
+            const resolved = resolveImageSrc(src);
+            return `<img src="${resolved}" alt="${alt}" loading="lazy">`;
+        });
         // Links [text](url)
         text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
         // Bare URLs (not already inside href or src) — turn into link embeds with favicons
@@ -211,7 +252,8 @@
         // Image-only line: ![alt](url)
         const imgMatch = trimmed.match(/^!\[([^\]]*)\]\((.+?)\)$/);
         if (imgMatch) {
-            return `<p><img src="${escapeHtml(imgMatch[2])}" alt="${escapeHtml(imgMatch[1])}" loading="lazy"></p>`;
+            const resolved = resolveImageSrc(imgMatch[2]);
+            return `<p><img src="${escapeHtml(resolved)}" alt="${escapeHtml(imgMatch[1])}" loading="lazy"></p>`;
         }
 
         // List item
@@ -238,8 +280,11 @@
             // Code block fence
             if (trimmed.startsWith('```')) {
                 if (inCodeBlock) {
-                    // Close code block
-                    html += `<pre><code>${escapeHtml(codeContent)}</code></pre>`;
+                    // Close code block — apply highlight.js
+                    const escaped = escapeHtml(codeContent);
+                    const langAttr = codeLang ? ` class="language-${codeLang}"` : '';
+                    const langLabel = codeLang ? `<span class="code-lang-label">${escapeHtml(codeLang)}</span>` : '';
+                    html += `<pre>${langLabel}<code${langAttr}>${escaped}</code></pre>`;
                     codeContent = '';
                     codeLang = '';
                     inCodeBlock = false;
@@ -456,7 +501,7 @@
         saveStateImmediate();
         updateStatus();
         renderPageList();
-        renderTabBar();
+        // renderTabBar();
     }
 
     function addPage() {
@@ -490,7 +535,7 @@
             page.title = newTitle.trim();
             saveStateImmediate();
             renderPageList();
-            renderTabBar();
+            // renderTabBar();
         }
     }
 
@@ -906,7 +951,7 @@
         updateNotifStatus();
     });
 
-    // ─── Tab Bar ──────────────────────────────────────────────────
+    /* ─── Tab Bar (commented out) ─────────────────────────────────
 
     function renderTabBar() {
         const ids = Object.keys(state.pages);
@@ -921,12 +966,10 @@
         }
         tabsContainer.innerHTML = html;
 
-        // Scroll active tab into view
         const activeTab = tabsContainer.querySelector('.tab.active');
         if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
 
-    // Tab bar event listeners
     tabsContainer.addEventListener('click', (e) => {
         const closeBtn = e.target.closest('.tab-close');
         if (closeBtn) {
@@ -940,7 +983,6 @@
         }
     });
 
-    // Double-click tab to rename (inline)
     tabsContainer.addEventListener('dblclick', (e) => {
         const tab = e.target.closest('.tab');
         if (!tab) return;
@@ -977,6 +1019,8 @@
 
     tabAddBtn.addEventListener('click', addPage);
 
+    ─── End Tab Bar ─────────────────────────────────────────────── */
+
     // ─── Image Paste & Drag Support ──────────────────────────────
 
     function fileToDataUrl(file) {
@@ -999,7 +1043,8 @@
                 const file = item.getAsFile();
                 if (!file) return;
                 const dataUrl = await fileToDataUrl(file);
-                insertAtCursor(`![image](${dataUrl})`);
+                const id = storeImage(dataUrl);
+                insertAtCursor(`![image](img:${id})`);
                 return;
             }
         }
@@ -1057,7 +1102,8 @@
             for (const file of files) {
                 if (file.type.startsWith('image/')) {
                     const dataUrl = await fileToDataUrl(file);
-                    insertAtCursor(`\n![${file.name}](${dataUrl})\n`);
+                    const id = storeImage(dataUrl);
+                    insertAtCursor(`\n![${file.name}](img:${id})\n`);
                 }
             }
             return;
@@ -1099,7 +1145,7 @@
         setMode(hasContent ? (state.mode || 'edit') : 'edit');
 
         updateStatus();
-        renderTabBar();
+        // renderTabBar();
 
         // Start notification timer
         startNotifTimer();
