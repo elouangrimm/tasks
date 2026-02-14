@@ -187,24 +187,28 @@
         const bracketMatch = line.match(/^(\s*(?:-\s+)?)\[([ xX]?)\](!!?)?\s*(.*)$/);
         if (bracketMatch) {
             const bangs = bracketMatch[3] || '';
+            const leadingSpaces = bracketMatch[1].match(/^(\s*)/)[1].length;
             return {
                 prefix: bracketMatch[1],
                 checked: bracketMatch[2].toLowerCase() === 'x',
                 text: bracketMatch[4],
                 type: 'bracket',
-                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal'
+                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal',
+                indent: leadingSpaces
             };
         }
         // Ampersand syntax: optional "- ", then & optional ! or !!, followed by space and text
         const ampMatch = line.match(/^(\s*(?:-\s+)?)&(!!?)?\s+(.+)$/);
         if (ampMatch) {
             const bangs = ampMatch[2] || '';
+            const leadingSpaces = ampMatch[1].match(/^(\s*)/)[1].length;
             return {
                 prefix: ampMatch[1],
                 checked: false,
                 text: ampMatch[3],
                 type: 'ampersand',
-                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal'
+                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal',
+                indent: leadingSpaces
             };
         }
         return null;
@@ -213,13 +217,14 @@
     function renderTask(task, lineIndex) {
         const checkedClass = task.checked ? ' checked' : '';
         const priorityClass = task.priority !== 'normal' ? ` priority-${task.priority}` : '';
+        const subtaskClass = task.indent > 0 ? ' subtask' : '';
         let badge = '';
         if (task.priority === 'medium') {
             badge = '<span class="priority-badge medium">!</span>';
         } else if (task.priority === 'high') {
             badge = '<span class="priority-badge high">!!</span>';
         }
-        return `<div class="task-line${checkedClass}${priorityClass}" data-line="${lineIndex}">` +
+        return `<div class="task-line${checkedClass}${priorityClass}${subtaskClass}" data-line="${lineIndex}">` +
             `<div class="task-checkbox${checkedClass}"></div>` +
             badge +
             `<span class="task-text">${renderInline(task.text)}</span>` +

@@ -240,6 +240,29 @@ body {
     opacity: 0.85;
 }
 
+.task-line.subtask {
+    margin-left: 32px;
+    padding-left: 12px;
+    border-left: 2px solid var(--stone-800);
+    font-size: 0.93em;
+}
+
+.task-line.subtask.priority-medium {
+    margin-left: 32px;
+    border-left: 2px solid var(--amber);
+}
+
+.task-line.subtask.priority-high {
+    margin-left: 32px;
+    border-left: 2px solid var(--red);
+}
+
+.task-line.subtask .task-checkbox {
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+}
+
 .task-checkbox {
     width: 18px;
     height: 18px;
