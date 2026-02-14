@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasks</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='2' fill='%231c1917' stroke='%233b82f6' stroke-width='1.5'/%3E%3Cpath d='M4 8l3 3 5-6' stroke='%233b82f6' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use # for headings&#10;Use **bold** and *italic*&#10;&#10;Ctrl+E to preview"></textarea>
+    <div id="preview" class="hidden"></div>
+
+    <div id="controls">
+        <button id="mode-toggle" class="ctrl-btn" title="Preview (Ctrl+E)"></button>
+        <button id="settings-toggle" class="ctrl-btn" title="Settings"></button>
+    </div>
+
+    <div id="status-bar">
+        <span id="word-count"></span>
+        <span id="task-count"></span>
+    </div>
+
+    <div id="settings-overlay">
+        <div id="settings-panel">
+            <div class="settings-header">
+                <h3>Settings</h3>
+                <button id="settings-close" class="close-btn">&times;</button>
+            </div>
+
+            <div class="setting-section">
+                <label class="setting-label">Font Size</label>
+                <div class="setting-row">
+                    <input type="range" id="font-size" min="12" max="28" value="16">
+                    <span id="font-size-value">16px</span>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <label class="setting-label">Pages</label>
+                <div id="page-list"></div>
+                <button id="add-page" class="action-btn small secondary">+ New Page</button>
+            </div>
+
+            <div class="setting-section">
+                <div class="button-row">
+                    <button id="export-btn" class="action-btn small secondary">Export .md</button>
+                    <button id="import-btn" class="action-btn small secondary">Import .md</button>
+                </div>
+                <button id="clear-btn" class="action-btn small danger">Clear Page</button>
+                <input type="file" id="import-file" accept=".md,.txt,.markdown" style="display:none">
+            </div>
+
+            <div class="setting-section">
+                <label class="setting-label">Shortcuts</label>
+                <div class="shortcuts">
+                    <div class="shortcut"><kbd>Ctrl+E</kbd><span>Toggle edit / preview</span></div>
+                    <div class="shortcut"><kbd>Escape</kbd><span>Close / Exit preview</span></div>
+                    <div class="shortcut"><kbd>Tab</kbd><span>Indent</span></div>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <label class="setting-label">Syntax</label>
+                <div class="shortcuts">
+                    <div class="shortcut"><code>[ ] text</code><span>Task</span></div>
+                    <div class="shortcut"><code>&amp; text</code><span>Task (shorthand)</span></div>
+                    <div class="shortcut"><code># Heading</code><span>Header</span></div>
+                    <div class="shortcut"><code>**bold**</code><span>Bold</span></div>
+                    <div class="shortcut"><code>*italic*</code><span>Italic</span></div>
+                    <div class="shortcut"><code>- item</code><span>List</span></div>
+                    <div class="shortcut"><code>> quote</code><span>Blockquote</span></div>
+                    <div class="shortcut"><code>---</code><span>Divider</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
