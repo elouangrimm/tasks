@@ -27,10 +27,16 @@
     const importBtn = document.getElementById('import-btn');
     const importFile = document.getElementById('import-file');
     const clearBtn = document.getElementById('clear-btn');
+    const notifIntervalSelect = document.getElementById('notif-interval');
+    const notifFilterSelect = document.getElementById('notif-filter');
+    const notifDot = document.getElementById('notif-dot');
+    const notifStatusText = document.getElementById('notif-status-text');
+    const notifTestBtn = document.getElementById('notif-test');
 
     // ─── State ───────────────────────────────────────────────────
     let state = loadState();
     let saveTimeout = null;
+    let notifTimerId = null;
 
     // ─── State Management ────────────────────────────────────────
     function generateId() {
@@ -43,6 +49,8 @@
             currentPageId: id,
             fontSize: 16,
             mode: 'edit',
+            notifInterval: 0,
+            notifFilter: 'all',
             pages: {
                 [id]: { title: 'Notes', content: '', lastEdited: Date.now() }
             }
@@ -114,29 +122,37 @@
     /**
      * Parse a line to see if it's a task/checkbox line.
      * Supports:
-     *   [ ] text, [x] text, [] text  (bracket syntax)
-     *   & text                        (ampersand shorthand)
-     *   - [ ] text, - & text          (with list prefix)
+     *   [ ] text, [x] text, [] text           (bracket syntax)
+     *   [ ]! text, [ ]!! text                  (bracket + priority)
+     *   & text                                 (ampersand shorthand)
+     *   &! text, &!! text                      (ampersand + priority)
+     *   - [ ] text, - & text                   (with list prefix)
+     *
+     * Priority: !! = high (red), ! = medium (amber), none = normal
      */
     function parseTaskLine(line) {
-        // Bracket syntax: optional "- ", then [<space or x>], then text
-        const bracketMatch = line.match(/^(\s*(?:-\s+)?)\[([ xX]?)\]\s*(.*)$/);
+        // Bracket syntax: optional "- ", then [<space or x>], optional ! or !!, then text
+        const bracketMatch = line.match(/^(\s*(?:-\s+)?)\[([ xX]?)\](!!?)?\s*(.*)$/);
         if (bracketMatch) {
+            const bangs = bracketMatch[3] || '';
             return {
                 prefix: bracketMatch[1],
                 checked: bracketMatch[2].toLowerCase() === 'x',
-                text: bracketMatch[3],
-                type: 'bracket'
+                text: bracketMatch[4],
+                type: 'bracket',
+                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal'
             };
         }
-        // Ampersand syntax: optional "- ", then & followed by space and text
-        const ampMatch = line.match(/^(\s*(?:-\s+)?)&\s+(.+)$/);
+        // Ampersand syntax: optional "- ", then & optional ! or !!, followed by space and text
+        const ampMatch = line.match(/^(\s*(?:-\s+)?)&(!!?)?\s+(.+)$/);
         if (ampMatch) {
+            const bangs = ampMatch[2] || '';
             return {
                 prefix: ampMatch[1],
                 checked: false,
-                text: ampMatch[2],
-                type: 'ampersand'
+                text: ampMatch[3],
+                type: 'ampersand',
+                priority: bangs === '!!' ? 'high' : bangs === '!' ? 'medium' : 'normal'
             };
         }
         return null;
@@ -144,8 +160,16 @@
 
     function renderTask(task, lineIndex) {
         const checkedClass = task.checked ? ' checked' : '';
-        return `<div class="task-line${checkedClass}" data-line="${lineIndex}">` +
+        const priorityClass = task.priority !== 'normal' ? ` priority-${task.priority}` : '';
+        let badge = '';
+        if (task.priority === 'medium') {
+            badge = '<span class="priority-badge medium">!</span>';
+        } else if (task.priority === 'high') {
+            badge = '<span class="priority-badge high">!!</span>';
+        }
+        return `<div class="task-line${checkedClass}${priorityClass}" data-line="${lineIndex}">` +
             `<div class="task-checkbox${checkedClass}"></div>` +
+            badge +
             `<span class="task-text">${renderInline(task.text)}</span>` +
             `</div>`;
     }
@@ -240,8 +264,9 @@
         let newChecked;
 
         if (task.type === 'ampersand') {
-            // & text → [x] text
-            newLine = task.prefix + '[x] ' + task.text;
+            // &[!|!!] text → [x][!|!!] text — preserve priority markers
+            const bangStr = task.priority === 'high' ? '!!' : task.priority === 'medium' ? '!' : '';
+            newLine = task.prefix + '[x]' + bangStr + ' ' + task.text;
             newChecked = true;
         } else if (task.checked) {
             // [x] → [ ]
@@ -535,12 +560,12 @@
             let continuationPrefix = null;
 
             // Priority order: task patterns first, then plain lists
-            if (/^(\s*)(?:-\s+)?\[[ xX]?\]\s/.test(currentLine)) {
-                // Task line with brackets → continue with [ ]
+            if (/^(\s*)(?:-\s+)?\[[ xX]?\](?:!!?)?\s/.test(currentLine)) {
+                // Task line with brackets → continue with [ ] (no priority — user adds manually)
                 const indent = currentLine.match(/^(\s*)/)[1];
                 const hasDash = /^(\s*)-\s+\[/.test(currentLine);
                 continuationPrefix = indent + (hasDash ? '- [ ] ' : '[ ] ');
-            } else if (/^(\s*)(?:-\s+)?&\s/.test(currentLine)) {
+            } else if (/^(\s*)(?:-\s+)?&(?:!!?)?\s/.test(currentLine)) {
                 // Task line with & → continue with &
                 const indent = currentLine.match(/^(\s*)/)[1];
                 const hasDash = /^(\s*)-\s+&/.test(currentLine);
@@ -554,7 +579,7 @@
             if (continuationPrefix) {
                 // Check if the current line has content beyond the prefix
                 const contentAfterPrefix = currentLine
-                    .replace(/^\s*(?:-\s+)?(?:\[[ xX]?\]\s*|&\s*)?/, '')
+                    .replace(/^\s*(?:-\s+)?(?:\[[ xX]?\](?:!!?)?\s*|&(?:!!?)?\s*)?/, '')
                     .trim();
 
                 if (contentAfterPrefix === '') {
@@ -666,12 +691,206 @@
         }
     });
 
+    // ─── Notification System ─────────────────────────────────────
+
+    /**
+     * Collect incomplete tasks from ALL pages, filtered by priority setting.
+     * Returns array of { text, priority, page } sorted: high → medium → normal.
+     */
+    function collectPendingTasks() {
+        const filter = state.notifFilter || 'all';
+        const tasks = [];
+
+        for (const [id, page] of Object.entries(state.pages)) {
+            const lines = page.content.split('\n');
+            for (const line of lines) {
+                const task = parseTaskLine(line);
+                if (!task || task.checked) continue;
+
+                // Apply filter
+                if (filter === 'high' && task.priority !== 'high') continue;
+                if (filter === 'medium' && task.priority === 'normal') continue;
+
+                tasks.push({
+                    text: task.text,
+                    priority: task.priority,
+                    page: page.title
+                });
+            }
+        }
+
+        // Sort: high first, then medium, then normal
+        const order = { high: 0, medium: 1, normal: 2 };
+        tasks.sort((a, b) => order[a.priority] - order[b.priority]);
+
+        return tasks;
+    }
+
+    /**
+     * Format a task for notification body text.
+     */
+    function formatTaskForNotif(task) {
+        const marker = task.priority === 'high' ? '‼️ ' : task.priority === 'medium' ? '⚠️ ' : '• ';
+        return marker + task.text;
+    }
+
+    /**
+     * Send a browser notification with pending tasks.
+     * Uses the Notification API with actions, icons, and tag for stacking.
+     */
+    async function sendTaskNotification(isTest = false) {
+        // Ensure we have permission
+        if (Notification.permission === 'default') {
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') return;
+        }
+        if (Notification.permission !== 'granted') return;
+
+        const tasks = collectPendingTasks();
+
+        if (tasks.length === 0 && !isTest) return;
+
+        const highCount = tasks.filter(t => t.priority === 'high').length;
+        const medCount = tasks.filter(t => t.priority === 'medium').length;
+
+        // Build title
+        let title;
+        if (isTest && tasks.length === 0) {
+            title = '✅ No pending tasks!';
+        } else if (highCount > 0) {
+            title = `🔴 ${tasks.length} task${tasks.length !== 1 ? 's' : ''} pending`;
+        } else if (medCount > 0) {
+            title = `🟡 ${tasks.length} task${tasks.length !== 1 ? 's' : ''} pending`;
+        } else {
+            title = `📋 ${tasks.length} task${tasks.length !== 1 ? 's' : ''} pending`;
+        }
+
+        // Build body — show up to 6 tasks, grouped nicely
+        const maxShow = 6;
+        const shown = tasks.slice(0, maxShow);
+        const bodyLines = shown.map(formatTaskForNotif);
+        if (tasks.length > maxShow) {
+            bodyLines.push(`  ...and ${tasks.length - maxShow} more`);
+        }
+        const body = bodyLines.join('\n');
+
+        // Priority summary for the tag line
+        const parts = [];
+        if (highCount) parts.push(`${highCount} urgent`);
+        if (medCount) parts.push(`${medCount} important`);
+        const normalCount = tasks.length - highCount - medCount;
+        if (normalCount) parts.push(`${normalCount} normal`);
+
+        // Create the notification
+        const notif = new Notification(title, {
+            body: body || 'All clear — nothing to do!',
+            icon: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="8" fill="#1c1917" stroke="#3b82f6" stroke-width="4"/><path d="M16 32l10 10 22-24" stroke="#3b82f6" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'),
+            tag: 'tasks-reminder', // Replaces previous notification instead of stacking
+            renotify: true, // Vibrate/sound even when replacing
+            silent: false,
+            requireInteraction: highCount > 0, // Stay visible if urgent tasks exist
+        });
+
+        // Click notification → focus the tab
+        notif.onclick = () => {
+            window.focus();
+            notif.close();
+        };
+    }
+
+    /**
+     * Start or restart the notification interval timer.
+     */
+    function startNotifTimer() {
+        // Clear any existing timer
+        if (notifTimerId) {
+            clearInterval(notifTimerId);
+            notifTimerId = null;
+        }
+
+        const minutes = parseInt(state.notifInterval, 10) || 0;
+        if (minutes <= 0) {
+            updateNotifStatus();
+            return;
+        }
+
+        // Request permission proactively
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        notifTimerId = setInterval(() => {
+            sendTaskNotification(false);
+        }, minutes * 60 * 1000);
+
+        updateNotifStatus();
+    }
+
+    /**
+     * Update the notification status indicator in settings.
+     */
+    function updateNotifStatus() {
+        const minutes = parseInt(state.notifInterval, 10) || 0;
+        const isActive = minutes > 0;
+        const hasPermission = 'Notification' in window && Notification.permission === 'granted';
+
+        notifDot.className = 'notif-dot ' + (isActive ? 'active' : 'inactive');
+
+        if (!('Notification' in window)) {
+            notifStatusText.textContent = 'Notifications not supported';
+        } else if (minutes === 0) {
+            notifStatusText.textContent = 'Notifications off';
+        } else if (!hasPermission && Notification.permission === 'denied') {
+            notifStatusText.textContent = 'Blocked — allow in browser settings';
+            notifDot.className = 'notif-dot inactive';
+        } else if (!hasPermission) {
+            notifStatusText.textContent = `Every ${formatInterval(minutes)} — click Test to enable`;
+        } else {
+            const filterLabel = { all: 'all tasks', medium: 'medium+ priority', high: 'high priority only' };
+            notifStatusText.textContent = `Every ${formatInterval(minutes)} · ${filterLabel[state.notifFilter] || 'all tasks'}`;
+        }
+    }
+
+    function formatInterval(minutes) {
+        if (minutes < 60) return `${minutes}m`;
+        const h = minutes / 60;
+        return h === 1 ? '1 hour' : `${h} hours`;
+    }
+
+    // ─── Notification Event Listeners ────────────────────────────
+
+    notifIntervalSelect.addEventListener('change', () => {
+        state.notifInterval = parseInt(notifIntervalSelect.value, 10);
+        saveStateImmediate();
+        startNotifTimer();
+    });
+
+    notifFilterSelect.addEventListener('change', () => {
+        state.notifFilter = notifFilterSelect.value;
+        saveStateImmediate();
+        updateNotifStatus();
+    });
+
+    notifTestBtn.addEventListener('click', async () => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            await Notification.requestPermission();
+        }
+        sendTaskNotification(true);
+        updateNotifStatus();
+    });
+
     // ─── Initialization ──────────────────────────────────────────
     function init() {
         // Apply saved font size
         document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
         fontSizeSlider.value = state.fontSize;
         fontSizeValue.textContent = state.fontSize + 'px';
+
+        // Apply saved notification settings
+        if (state.notifInterval === undefined) state.notifInterval = 0;
+        if (state.notifFilter === undefined) state.notifFilter = 'all';
+        notifIntervalSelect.value = state.notifInterval;
+        notifFilterSelect.value = state.notifFilter;
 
         // Set icons
         settingsToggle.innerHTML = ICON_GEAR;
@@ -684,6 +903,9 @@
         setMode(hasContent ? (state.mode || 'edit') : 'edit');
 
         updateStatus();
+
+        // Start notification timer
+        startNotifTimer();
     }
 
     init();

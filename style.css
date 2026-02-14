@@ -13,6 +13,9 @@
     --green: #22c55e;
     --indigo: #6366f1;
     --red: #ef4444;
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.12);
+    --red-dim: rgba(239, 68, 68, 0.10);
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", Consolas, monospace;
     --font-size: 16px;
@@ -257,6 +260,84 @@ body {
 .task-checkbox.checked {
     background: var(--blue);
     border-color: var(--blue);
+}
+
+/* === Priority Styling === */
+.task-line.priority-medium {
+    padding-left: 10px;
+    border-left: 2px solid var(--amber);
+}
+
+.task-line.priority-medium .task-text {
+    color: var(--amber);
+}
+
+.task-line.priority-medium .task-checkbox {
+    border-color: var(--amber);
+}
+
+.task-line.priority-medium .task-checkbox:hover {
+    border-color: var(--amber);
+    background: rgba(245, 158, 11, 0.15);
+}
+
+.task-line.priority-medium .task-checkbox.checked {
+    background: var(--amber);
+    border-color: var(--amber);
+}
+
+.task-line.priority-medium.checked .task-text {
+    color: var(--stone-500);
+}
+
+.task-line.priority-high {
+    padding-left: 10px;
+    border-left: 2px solid var(--red);
+}
+
+.task-line.priority-high .task-text {
+    color: var(--red);
+    font-weight: 600;
+}
+
+.task-line.priority-high .task-checkbox {
+    border-color: var(--red);
+}
+
+.task-line.priority-high .task-checkbox:hover {
+    border-color: var(--red);
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.task-line.priority-high .task-checkbox.checked {
+    background: var(--red);
+    border-color: var(--red);
+}
+
+.task-line.priority-high.checked .task-text {
+    color: var(--stone-500);
+    font-weight: normal;
+}
+
+.priority-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 1px 6px;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.priority-badge.medium {
+    color: var(--amber);
+    background: var(--amber-dim);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.priority-badge.high {
+    color: var(--red);
+    background: var(--red-dim);
+    border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .task-checkbox.checked::after {
@@ -661,6 +742,80 @@ input[type="range"]::-moz-range-thumb {
 
 .shortcut span {
     color: var(--stone-400);
+}
+
+/* === Notification Settings === */
+.notif-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.notif-row label {
+    font-size: 0.85rem;
+    color: var(--stone-300);
+    min-width: 80px;
+}
+
+.notif-select {
+    flex: 1;
+    background: var(--stone-950);
+    border: 1px solid var(--stone-800);
+    color: var(--stone-200);
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s;
+}
+
+.notif-select:hover,
+.notif-select:focus {
+    border-color: var(--stone-500);
+}
+
+.notif-status {
+    font-size: 0.75rem;
+    color: var(--stone-500);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notif-dot {
+    width: 6px;
+    height: 6px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.notif-dot.active {
+    background: var(--green);
+}
+
+.notif-dot.inactive {
+    background: var(--stone-500);
+}
+
+.notif-test-btn {
+    background: none;
+    border: 1px solid var(--stone-800);
+    color: var(--stone-400);
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.notif-test-btn:hover {
+    color: var(--stone-200);
+    border-color: var(--stone-500);
 }
 
 /* === Responsive === */

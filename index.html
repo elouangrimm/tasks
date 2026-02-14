@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use # for headings&#10;Use **bold** and *italic*&#10;&#10;Ctrl+E to preview"></textarea>
+    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use ! or !! for priority  (e.g. [ ]! or &amp;!!)&#10;Use # for headings&#10;Use **bold** and *italic*&#10;&#10;Ctrl+E to preview"></textarea>
     <div id="preview" class="hidden"></div>
 
     <div id="controls">
@@ -33,6 +33,36 @@
                 <div class="setting-row">
                     <input type="range" id="font-size" min="12" max="28" value="16">
                     <span id="font-size-value">16px</span>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <label class="setting-label">Reminders</label>
+                <div class="notif-row">
+                    <label>Interval</label>
+                    <select id="notif-interval" class="notif-select">
+                        <option value="0">Off</option>
+                        <option value="5">5 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="120">2 hours</option>
+                        <option value="240">4 hours</option>
+                        <option value="480">8 hours</option>
+                    </select>
+                </div>
+                <div class="notif-row">
+                    <label>Show</label>
+                    <select id="notif-filter" class="notif-select">
+                        <option value="all">All tasks</option>
+                        <option value="medium">Medium &amp; High priority</option>
+                        <option value="high">High priority only</option>
+                    </select>
+                </div>
+                <div class="notif-status">
+                    <span class="notif-dot" id="notif-dot"></span>
+                    <span id="notif-status-text">Notifications off</span>
+                    <button class="notif-test-btn" id="notif-test">Test</button>
                 </div>
             </div>
 
@@ -64,8 +94,10 @@
                 <label class="setting-label">Syntax</label>
                 <div class="shortcuts">
                     <div class="shortcut"><code>[ ] text</code><span>Task</span></div>
-                    <div class="shortcut"><code>&amp; text</code><span>Task (shorthand)</span></div>
-                    <div class="shortcut"><code># Heading</code><span>Header</span></div>
+                    <div class="shortcut"><code>&amp; text</code><span>Task (shorthand)</span></div>                    <div class="shortcut"><code>[ ]! text</code><span>Medium priority</span></div>
+                    <div class="shortcut"><code>[ ]!! text</code><span>High priority</span></div>
+                    <div class="shortcut"><code>&amp;! text</code><span>Medium (short)</span></div>
+                    <div class="shortcut"><code>&amp;!! text</code><span>High (short)</span></div>                    <div class="shortcut"><code># Heading</code><span>Header</span></div>
                     <div class="shortcut"><code>**bold**</code><span>Bold</span></div>
                     <div class="shortcut"><code>*italic*</code><span>Italic</span></div>
                     <div class="shortcut"><code>- item</code><span>List</span></div>
