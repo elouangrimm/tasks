@@ -277,6 +277,7 @@
         let inCodeBlock = false;
         let codeContent = '';
         let codeLang = '';
+        let inDrawer = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -306,6 +307,25 @@
                 continue;
             }
 
+            // Collapsible drawer close
+            if (trimmed === '>>>') {
+                if (inDrawer) {
+                    html += '</div></details>';
+                    inDrawer = false;
+                }
+                continue;
+            }
+
+            // Collapsible drawer open
+            if (trimmed.startsWith('<<<') || trimmed.startsWith('!<<<')) {
+                const startsClosed = trimmed.startsWith('!<<<');
+                const title = (startsClosed ? trimmed.slice(4) : trimmed.slice(3)).trim();
+                const openAttr = startsClosed ? '' : ' open';
+                html += `<details class="drawer"${openAttr}><summary class="drawer-summary">${renderInline(title || 'Details')}</summary><div class="drawer-content">`;
+                inDrawer = true;
+                continue;
+            }
+
             html += renderLine(line, i);
         }
 
@@ -314,6 +334,11 @@
             const escaped = escapeHtml(codeContent);
             const langAttr = codeLang ? ` class="language-${codeLang}"` : '';
             html += `<pre><code${langAttr}>${escaped}</code></pre>`;
+        }
+
+        // Close any unclosed drawer
+        if (inDrawer) {
+            html += '</div></details>';
         }
 
         return html;
@@ -594,8 +619,36 @@
 
     // ─── Event Listeners ─────────────────────────────────────────
 
-    // Editor input — save content
-    editor.addEventListener('input', () => {
+    // Editor input — save content & auto-fix priority markers
+    editor.addEventListener('input', (e) => {
+        // Auto-insert priority: typing ! after "& " → "&! ", after "&! " → "&!! "
+        if (e.inputType === 'insertText' && e.data === '!') {
+            const pos = editor.selectionStart;
+            const before = editor.value.substring(0, pos);
+            const lineStart = before.lastIndexOf('\n') + 1;
+            const lineBeforeCursor = before.substring(lineStart);
+
+            // "& !" → "&! "
+            const singleMatch = lineBeforeCursor.match(/^(\s*)& !$/);
+            if (singleMatch) {
+                const prefix = singleMatch[1];
+                const replaceFrom = lineStart;
+                const newText = prefix + '&! ';
+                editor.value = editor.value.substring(0, replaceFrom) + newText + editor.value.substring(pos);
+                editor.selectionStart = editor.selectionEnd = replaceFrom + newText.length;
+            } else {
+                // "&! !" → "&!! "
+                const doubleMatch = lineBeforeCursor.match(/^(\s*)&! !$/);
+                if (doubleMatch) {
+                    const prefix = doubleMatch[1];
+                    const replaceFrom = lineStart;
+                    const newText = prefix + '&!! ';
+                    editor.value = editor.value.substring(0, replaceFrom) + newText + editor.value.substring(pos);
+                    editor.selectionStart = editor.selectionEnd = replaceFrom + newText.length;
+                }
+            }
+        }
+
         const page = getCurrentPage();
         page.content = editor.value;
         page.lastEdited = Date.now();
@@ -607,21 +660,33 @@
     editor.addEventListener('keydown', (e) => {
         if (e.key === 'Tab') {
             e.preventDefault();
+            const start = editor.selectionStart;
+            const before = editor.value.substring(0, start);
+            const lineStart = before.lastIndexOf('\n') + 1;
+            const lineEnd = editor.value.indexOf('\n', start);
+            const fullLine = editor.value.substring(lineStart, lineEnd === -1 ? editor.value.length : lineEnd);
+
+            // Check if current line is a task prefix (& , &! , &!! ) — indent/outdent entire line
+            const taskPrefixMatch = fullLine.match(/^(\s*)(&(?:!!?)?\s)(.*)$/);
+
             if (e.shiftKey) {
                 // Outdent: remove leading 4 spaces or tab from current line
-                const start = editor.selectionStart;
-                const before = editor.value.substring(0, start);
-                const lineStart = before.lastIndexOf('\n') + 1;
                 const linePrefix = editor.value.substring(lineStart, start);
-                if (linePrefix.startsWith('    ')) {
+                if (fullLine.startsWith('    ')) {
                     editor.value = editor.value.substring(0, lineStart) + editor.value.substring(lineStart + 4);
                     editor.selectionStart = editor.selectionEnd = Math.max(lineStart, start - 4);
                     editor.dispatchEvent(new Event('input'));
-                } else if (linePrefix.startsWith('\t')) {
+                } else if (fullLine.startsWith('\t')) {
                     editor.value = editor.value.substring(0, lineStart) + editor.value.substring(lineStart + 1);
                     editor.selectionStart = editor.selectionEnd = Math.max(lineStart, start - 1);
                     editor.dispatchEvent(new Event('input'));
                 }
+            } else if (taskPrefixMatch) {
+                // Indent entire task line: prepend 4 spaces before the &
+                const newLine = taskPrefixMatch[1] + '    ' + taskPrefixMatch[2] + taskPrefixMatch[3];
+                editor.value = editor.value.substring(0, lineStart) + newLine + editor.value.substring(lineEnd === -1 ? editor.value.length : lineEnd);
+                editor.selectionStart = editor.selectionEnd = start + 4;
+                editor.dispatchEvent(new Event('input'));
             } else {
                 insertAtCursor('    ');
             }

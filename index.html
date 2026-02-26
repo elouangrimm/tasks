@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tasks</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <link rel="stylesheet" href="style.css">
     <meta property="og:image" content="card.png">
     <meta name="image" content="card.png">
 </head>
 <body>
-    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use ! or !! for priority  (e.g. [ ]! or &amp;!!)&#10;Use # for headings&#10;Use **bold** and *italic*&#10;Use `code` and ```lang for code blocks&#10;Paste or drag images &amp; links&#10;&#10;Ctrl+E to preview"></textarea>
+    <textarea id="editor" spellcheck="false" placeholder="Start writing...&#10;&#10;Use [ ] or &amp; to create tasks&#10;Use ! or !! for priority  (e.g. [ ]! or &amp;!!)&#10;Use # for headings&#10;Use **bold** and *italic*&#10;Use `code` and ```lang for code blocks&#10;Use &lt;&lt;&lt;Title / &gt;&gt;&gt; for drawers&#10;Paste or drag images &amp; links&#10;&#10;Ctrl+E to preview"></textarea>
     <div id="preview" class="hidden"></div>
 
     <div id="controls">
@@ -103,10 +103,12 @@
                 <label class="setting-label">Syntax</label>
                 <div class="shortcuts">
                     <div class="shortcut"><code>[ ] text</code><span>Task</span></div>
-                    <div class="shortcut"><code>&amp; text</code><span>Task (shorthand)</span></div>                    <div class="shortcut"><code>[ ]! text</code><span>Medium priority</span></div>
+                    <div class="shortcut"><code>&amp; text</code><span>Task (shorthand)</span></div>
+                    <div class="shortcut"><code>[ ]! text</code><span>Medium priority</span></div>
                     <div class="shortcut"><code>[ ]!! text</code><span>High priority</span></div>
                     <div class="shortcut"><code>&amp;! text</code><span>Medium (short)</span></div>
-                    <div class="shortcut"><code>&amp;!! text</code><span>High (short)</span></div>                    <div class="shortcut"><code># Heading</code><span>Header</span></div>
+                    <div class="shortcut"><code>&amp;!! text</code><span>High (short)</span></div>                    
+                    <div class="shortcut"><code># Heading</code><span>Header</span></div>
                     <div class="shortcut"><code>**bold**</code><span>Bold</span></div>
                     <div class="shortcut"><code>*italic*</code><span>Italic</span></div>
                     <div class="shortcut"><code>- item</code><span>List</span></div>
@@ -116,6 +118,9 @@
                     <div class="shortcut"><code>```lang</code><span>Code block</span></div>
                     <div class="shortcut"><code>[text](url)</code><span>Link</span></div>
                     <div class="shortcut"><code>![alt](url)</code><span>Image</span></div>
+                    <div class="shortcut"><code>&lt;&lt;&lt;Title</code><span>Drawer (open)</span></div>
+                    <div class="shortcut"><code>!&lt;&lt;&lt;Title</code><span>Drawer (closed)</span></div>
+                    <div class="shortcut"><code>&gt;&gt;&gt;</code><span>End drawer</span></div>
                 </div>
             </div>
         </div>
