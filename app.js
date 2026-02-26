@@ -87,7 +87,7 @@
         const id = generateId();
         return {
             currentPageId: id,
-            fontSize: 16,
+            fontSize: 25,
             mode: 'edit',
             notifInterval: 0,
             notifFilter: 'all',
