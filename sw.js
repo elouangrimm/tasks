@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tasks-v1';
+const CACHE_NAME = 'tasks-v2';
 const PRECACHE_URLS = [
     './',
     './index.html',
@@ -37,6 +37,10 @@ self.addEventListener('activate', event => {
 
 // Fetch: cache-first, network fallback with dynamic caching
 self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+
+    // Only handle http(s) — skip chrome-extension://, etc.
+    if (!url.protocol.startsWith('http')) return;
     if (event.request.method !== 'GET') return;
 
     event.respondWith(
@@ -46,10 +50,10 @@ self.addEventListener('fetch', event => {
 
                 return fetch(event.request)
                     .then(response => {
-                        if (response.ok) {
+                        if (response.ok && response.type !== 'opaqueredirect') {
                             const clone = response.clone();
                             caches.open(CACHE_NAME).then(cache => {
-                                cache.put(event.request, clone);
+                                try { cache.put(event.request, clone); } catch(e) {}
                             });
                         }
                         return response;
