@@ -1,0 +1,68 @@
+{
+    "manifest_version": 3,
+    "version": "1.0.0",
+    "name": "Tasks",
+    "short_name": "Tasks",
+    "description": "Minimal markdown task manager with rich formatting, multiple pages, and full offline support",
+    "start_url": ".",
+    "id": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+    "orientation": "any",
+    "background_color": "#0c0a09",
+    "theme_color": "#3b82f6",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["productivity", "utilities"],
+    "icons": {
+        "32": "icons/favicon-32x32.png",
+        "48": "icons/favicon-48x48.png",
+        "64": "icons/favicon-64x64.png",
+        "128": "icons/favicon-128x128.png",
+        "192": "icons/favicon-192x192.png",
+        "512": "icons/favicon-512x512.png"
+    },
+    "shortcuts": [
+        {
+            "name": "New Page",
+            "short_name": "New",
+            "url": "./?new-page",
+            "description": "Create a new page",
+            "icons": [
+                {
+                    "src": "icons/icon.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        }
+    ],
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    },
+    "handle_links": "preferred",
+    "prefer_related_applications": false,
+    "related_applications": [],
+    "file_handlers": [
+        {
+            "action": "/",
+            "accept": {
+                "text/markdown": [".md", ".markdown", ".txt"]
+            }
+        }
+    ],
+    "share_target": {
+        "action": "/",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url"
+        }
+    },
+    "edge_side_panel": {
+        "preferred_width": 480
+    }
+}
